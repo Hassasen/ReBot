@@ -8,6 +8,9 @@ from telegram.ext import (
 )
 import sqlite3
 import time
+import threading
+import os
+from flask import Flask, redirect
 
 # استبدل هذه القيم!
 BOT_TOKEN = "7875189417:AAHeT-95FjjdewIcluWyA0FIkKNyezrdjrg"
@@ -18,6 +21,17 @@ conn = sqlite3.connect('users.db')
 cursor = conn.cursor()
 cursor.execute('CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY)')
 conn.commit()
+
+# إعداد السيرفر الوهمي
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return redirect("https://t.me/tasse_sy", code=302)
+
+def run_web():
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
 
 async def start(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
@@ -48,11 +62,15 @@ async def forward_to_users(update: Update, context: CallbackContext):
                     print(f"Error for user {user_id}: {e}")
 
 def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(MessageHandler(filters.Chat(chat_id=CHANNEL_ID), forward_to_users))
-    app.add_handler(CommandHandler("start", start))
+    # تشغيل السيرفر الوهمي بالخلفية
+    threading.Thread(target=run_web).start()
+    
+    # تشغيل البوت
+    app_tg = ApplicationBuilder().token(BOT_TOKEN).build()
+    app_tg.add_handler(MessageHandler(filters.Chat(chat_id=CHANNEL_ID), forward_to_users))
+    app_tg.add_handler(CommandHandler("start", start))
     print("✅ البوت يعمل...")
-    app.run_polling()
+    app_tg.run_polling()
 
 if __name__ == "__main__":
     main()
